@@ -60,9 +60,9 @@ def home():
 # Réinitialisé la base de données
 def reset_database():
     with app.app_context():
-        db.drop_all()
-        db.session.commit()  # S'assurer que la suppression est bien prise en compte
-        db.create_all()
+        #db.drop_all()
+        #db.session.commit()  # S'assurer que la suppression est bien prise en compte
+        #db.create_all()
         print("Base de données réinitialisée avec succès !")
 
 
@@ -90,6 +90,77 @@ def login():
         access_token = create_access_token(identity={'id': user.id, 'is_owner': user.is_owner})
         return jsonify({'message': 'Vous êtes connecté !', 'access_token': access_token})
     return jsonify({'message': 'Identifiants invalides'}), 401
+
+
+@app.route('/properties', methods=['POST'])
+@jwt_required()
+def add_property():
+    user = get_jwt_identity()
+    data = request.get_json()
+    property = Property(
+        name=data['name'],
+        description=data['description'],
+        type=data['type'],
+        city=data['city'],
+        owner_id=user['id']
+    )
+    db.session.add(property)
+    db.session.commit()
+    
+    return jsonify({'message': 'Propriété ajouté !'}), 201
+
+
+@app.route('/properties/<int:property_id>', methods=['PUT'])
+@jwt_required()
+def update_property(property_id):    
+    property = Property.query.get_or_404(property_id)
+    data = request.get_json()
+    for key, value in data.items():
+        setattr(property, key, value)
+    
+    db.session.commit()
+    
+    return jsonify({'message': 'Propriété mis à jour !'})
+
+
+@app.route('/properties', methods=['GET'])
+def get_properties():
+    properties = Property.query.all()
+    
+    return jsonify([{
+        'id': p.id,
+        'nom': p.name,
+        'ville': p.city,
+        'propriétaire': p.owner_id
+    } for p in properties])
+
+
+@app.route('/properties/<int:property_id>/pieces', methods=['POST'])
+@jwt_required()
+def add_piece(property_id):    
+    data = request.get_json()
+    piece = Piece(
+        name=data['name'],
+        description=data['description'],
+        property_id=property_id
+    )
+    db.session.add(piece)
+    db.session.commit()
+    return jsonify({'message': 'Pièce ajoutée à la propriété !'}), 201
+
+@app.route('/properties/<int:property_id>/pieces', methods=['GET'])
+def get_pieces(property_id):
+    property = Property.query.get_or_404(property_id)
+    
+    pieces = property.pieces
+    
+    return jsonify([{
+        'id': piece.id,
+        'nom': piece.name,
+        'description': piece.description
+    } for piece in pieces])
+
+
 
 # Exécution principale
 if __name__ == '__main__':
