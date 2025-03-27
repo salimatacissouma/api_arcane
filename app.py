@@ -92,6 +92,28 @@ def login():
     return jsonify({'message': 'Identifiants invalides'}), 401
 
 
+@app.route('/user', methods=['PUT'])
+@jwt_required()
+def update_user():
+    user_identity = get_jwt_identity()
+    user = User.query.get_or_404(user_identity['id'])
+    data = request.get_json()
+    # Mise à jour des champs modifiables
+    if 'lastname' in data:
+        user.lastname = data['lastname']
+    if 'firstname' in data:
+        user.firstname = data['firstname']
+    if 'date_of_birth' in data:
+        try:
+            user.date_of_birth = datetime.strptime(data['date_of_birth'], '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'message': 'Format de date invalide, utilisez YYYY-MM-DD'}), 400
+
+    db.session.commit()
+
+    return jsonify({'message': 'Informations mises à jour avec succès !'})
+
+
 @app.route('/properties', methods=['POST'])
 @jwt_required()
 def add_property():
@@ -133,6 +155,23 @@ def get_properties():
         'ville': p.city,
         'propriétaire': p.owner_id
     } for p in properties])
+
+
+@app.route('/properties/<string:ville>', methods=['GET'])
+def get_properties_by_city(ville):
+    properties = Property.query.filter_by(city=ville).all()  # Filtrer par ville
+    
+    if not properties:
+        return jsonify({'message': f'Aucun bien trouvé dans la ville de {ville}'}), 404
+    
+    return jsonify([
+        {
+            'id': p.id,
+            'nom': p.name,
+            'ville': p.city,
+            'propriétaire': p.owner_id
+        } for p in properties
+    ])
 
 
 @app.route('/properties/<int:property_id>/pieces', methods=['POST'])
