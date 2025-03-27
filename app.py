@@ -98,11 +98,14 @@ def update_user():
     user_identity = get_jwt_identity()
     user = User.query.get_or_404(user_identity['id'])
     data = request.get_json()
+
     # Mise à jour des champs modifiables
     if 'lastname' in data:
         user.lastname = data['lastname']
+
     if 'firstname' in data:
         user.firstname = data['firstname']
+
     if 'date_of_birth' in data:
         try:
             user.date_of_birth = datetime.strptime(data['date_of_birth'], '%Y-%m-%d')
@@ -119,6 +122,7 @@ def update_user():
 def add_property():
     user = get_jwt_identity()
     data = request.get_json()
+
     property = Property(
         name=data['name'],
         description=data['description'],
@@ -126,6 +130,7 @@ def add_property():
         city=data['city'],
         owner_id=user['id']
     )
+
     db.session.add(property)
     db.session.commit()
     
@@ -135,7 +140,11 @@ def add_property():
 @app.route('/properties/<int:property_id>', methods=['PUT'])
 @jwt_required()
 def update_property(property_id):    
+    user = get_jwt_identity()
     property = Property.query.get_or_404(property_id)
+
+    if property.owner_id != user['id']:
+        return jsonify({'message': 'Vous ne pouvez modifier que vos propres biens'}), 403
     data = request.get_json()
     for key, value in data.items():
         setattr(property, key, value)
@@ -178,11 +187,13 @@ def get_properties_by_city(ville):
 @jwt_required()
 def add_piece(property_id):    
     data = request.get_json()
+    
     piece = Piece(
         name=data['name'],
         description=data['description'],
         property_id=property_id
     )
+
     db.session.add(piece)
     db.session.commit()
     return jsonify({'message': 'Pièce ajoutée à la propriété !'}), 201
