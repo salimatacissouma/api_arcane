@@ -13,7 +13,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres@localhos
 # Configuration du secret pour JWT
 app.config['JWT_SECRET_KEY'] = 'mysecretkey'
 
-# Initialisation de SQLAlchemy
+# Initialisation de SQLAlchemy & JWTManager
 db = SQLAlchemy(app)
 jwt = JWTManager(app) 
 
@@ -60,9 +60,9 @@ def home():
 # Réinitialisé la base de données
 def reset_database():
     with app.app_context():
-        #db.drop_all()
-        #db.session.commit()  # S'assurer que la suppression est bien prise en compte
-        #db.create_all()
+        db.drop_all()
+        db.session.commit()  # S'assurer que la suppression est bien prise en compte
+        db.create_all()
         print("Base de données réinitialisée avec succès !")
 
 
@@ -70,6 +70,7 @@ def reset_database():
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
+
     user = User(
         lastname=data['lastname'], 
         firstname=data['firstname'], 
@@ -86,9 +87,11 @@ def register():
 def login():
     data = request.get_json()
     user = User.query.filter_by(email=data['email']).first()
+
     if user and user.password == data['password']:  # Ne pas oublier de vérifier le hash en production
         access_token = create_access_token(identity={'id': user.id, 'is_owner': user.is_owner})
         return jsonify({'message': 'Vous êtes connecté !', 'access_token': access_token})
+    
     return jsonify({'message': 'Identifiants invalides'}), 401
 
 
@@ -145,6 +148,7 @@ def update_property(property_id):
 
     if property.owner_id != user['id']:
         return jsonify({'message': 'Vous ne pouvez modifier que vos propres biens'}), 403
+    
     data = request.get_json()
     for key, value in data.items():
         setattr(property, key, value)
@@ -187,7 +191,7 @@ def get_properties_by_city(ville):
 @jwt_required()
 def add_piece(property_id):    
     data = request.get_json()
-    
+
     piece = Piece(
         name=data['name'],
         description=data['description'],
@@ -214,5 +218,5 @@ def get_pieces(property_id):
 
 # Exécution principale
 if __name__ == '__main__':
-    reset_database()
+    #reset_database() #Décommenter cette ligne lors de la prémière exécution
     app.run(debug=True)
